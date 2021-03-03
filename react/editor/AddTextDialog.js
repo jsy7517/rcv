@@ -1,19 +1,22 @@
 import React, { Component } from "react";
 import Modal from "react-modal";
 import filters from "../filters";
+import AddFilterDialog from './AddFilterDialog';
 import timeManager from "../../models/timeManager";
 import { server } from "../../config";
 import PropTypes from "prop-types";
 
 Modal.setAppElement(document.body);
 
-export default class AddFilterDialog extends Component {
+export default class AddTextDialog extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      filter: filters.videoFilters[0].id,
-      level: 100, // Must match default value of first filter in /react/filters.js
+      filter: "text",
+      text: 100, // Must match default value of first filter in /react/filters.js
+      color : "#FFFFFF",
+      size : 100
     };
 
     this.handleLevelChange = this.handleLevelChange.bind(this);
@@ -21,6 +24,8 @@ export default class AddFilterDialog extends Component {
     this.handleCloseDialog = this.handleCloseDialog.bind(this);
     this.handleAddFilter = this.handleAddFilter.bind(this);
     this.handleDelFilter = this.handleDelFilter.bind(this);
+    this.handleColorChange = this.handleColorChange.bind(this);
+    this.handleSizeChange = this.handleSizeChange.bind(this);
   }
 
   render() {
@@ -30,23 +35,23 @@ export default class AddFilterDialog extends Component {
       <div>
         <Modal
           isOpen={true}
-          contentLabel="새 필터 추가"
+          contentLabel="새 자막 추가"
           className={"modal"}
           overlayClassName={"overlay"}
           onRequestClose={this.handleCloseDialog}
         >
-          <h2>필터</h2>
+          <h2>자막</h2>
           <div>
             <table>
               <tbody>
                 {item.filters.length === 0 && (
                   <tr>
-                    <td>필터 없음</td>
+                    <td>자막 없음</td>
                   </tr>
                 )}
                 {item.filters.map((filter) => (
                   <tr key={filter.service}>
-                    <td>{AddFilterDialog.getFilter(filter.service).title}</td>
+                    <td>{AddTextDialog.getFilter(filter.service).title}</td>
                     <td>
                       <button
                         onClick={() => this.handleDelFilter(filter.service)}
@@ -61,55 +66,50 @@ export default class AddFilterDialog extends Component {
               </tbody>
             </table>
           </div>
-          <h3>새 필터 추가</h3>
+          {item.filters.length === 0 && (
+            <h3>새 자막 추가</h3>
+          )}
           <div>
             <form onSubmit={this.handleAddFilter}>
-              <label htmlFor={"filter"}>필터: </label>
-              <select name={"filter"} onChange={this.handleFilterChange}>
-                {filters.videoFilters.map((filter) => (
-                  <option value={filter.id} key={filter.id}>
-                    {filter.title}
-                  </option>
-                ))}
-                {filters.audioFilters.map((filter) => (
-                  <option value={filter.id} key={filter.id}>
-                    {filter.title}
-                  </option>
-                ))}
-              </select>
+              <label htmlFor={"filter"}>자막: </label>
+
               <br />
-              {AddFilterDialog.getFilter(this.state.filter).in[0].id ===
-                "level" && (
-                <>
-                  <label htmlFor={"level"}>값: </label>
-                  <input
-                    type={"range"}
-                    name={"level"}
-                    min={0}
-                    max={200}
-                    defaultValue={100}
-                    onChange={this.handleLevelChange}
-                  />
-                  <span> {this.state.level} %</span>
-                </>
-              )}
-              {AddFilterDialog.getFilter(this.state.filter).in[0].id ===
-                "duration" && (
-                <>
-                  <label htmlFor={"duration"}>길이: </label>
-                  <input
-                    type={"text"}
-                    name={"duration"}
-                    defaultValue={"00:00:00,000"}
-                    required={true}
-                    pattern={"^\\d{2,}:\\d{2}:\\d{2},\\d{3}$"}
-                    title={"00:00:00,000 형식의 기간"}
-                    onChange={this.handleLevelChange}
-                  />
-                </>
-              )}
+              <>
+                <label htmlFor={"text"}>입력: </label>
+                <input
+                  type={"text"}
+                  name={"text"}
+                  defaultValue={""}
+                  required={true}
+                  title={"자막"}
+                  onChange={this.handleLevelChange}
+                />
+              </>
               <br />
-              <input type={"submit"} value={"필터 추가"} />
+              <>
+                <label htmlFor={"size"}>크기: </label>
+                <input
+                  type={"range"}
+                  name={"size"}
+                  min={0}
+                  max={200}
+                  id={"fontsize"}
+                  value={this.state.size}
+                  onChange={this.handleSizeChange}
+                />
+              </>
+              <br/>
+              <>
+                <label htmlFor={"color"}>색상: </label>
+                <input
+                  type={"color"}
+                  name={"color"}
+                  value={this.state.color}
+                  onChange={this.handleColorChange}
+                />
+              </>
+              <br />
+              <input type={"submit"} value={"자막 추가"} />
               <button onClick={this.handleCloseDialog}>닫기</button>
             </form>
           </div>
@@ -123,13 +123,21 @@ export default class AddFilterDialog extends Component {
   }
 
   handleLevelChange(event) {
-    this.setState({ level: event.target.value });
+    this.setState({ text: event.target.value });
+  }
+
+  handleColorChange(event) {
+    this.setState({ color: event.target.value });
+  }
+
+  handleSizeChange(event) {
+    this.setState({ size: event.target.value });
   }
 
   handleCloseDialog() {
     this.setState({
       filter: filters.videoFilters[0].id,
-      level: 100, // Must match default value of first filter in /react/filters.js
+      text: "", // Must match default value of first filter in /react/filters.js
     });
     this.props.onClose();
   }
@@ -137,14 +145,7 @@ export default class AddFilterDialog extends Component {
   handleAddFilter(event) {
     event.preventDefault();
 
-    let filter = AddFilterDialog.getFilter(this.state.filter);
-    if (
-      filter.in[0].id === "duration" &&
-      !timeManager.isValidDuration(this.state.level)
-    ) {
-      alert("기간은 00:00:00,000 형식으로 0이 아니어야합니다.");
-      return;
-    }
+    let filter = AddTextDialog.getFilter(this.state.filter);
 
     let newFilter = {
       filter: this.state.filter,
@@ -156,12 +157,15 @@ export default class AddFilterDialog extends Component {
     const itemPath = this.props.item.split(":");
     newFilter.track = itemPath[0];
     newFilter.item = Number(itemPath[1]);
-
+    
+    
     for (let output of filter.out) {
-      input[filter.in[0].id] = this.state.level;
+      input[filter.in[0].id] = this.state.text;
+      input[filter.in[0].size] = this.state.size;
+      input[filter.in[0].color] = this.state.color;
       newFilter.params[output.id] = output.value(input, item);
     }
-  
+    console.log(newFilter)
     this.props.onAdd(newFilter);
   }
 
@@ -200,23 +204,11 @@ export default class AddFilterDialog extends Component {
    * @return {Object|null}
    */
   static getFilter(id) {
-    for (let filter of filters.videoFilters) {
-      if (filter.id === id) {
-        return filter;
-      }
-    }
-    for (let filter of filters.audioFilters) {
-      if (filter.id === id) {
-        return filter;
-      }
-    }
-    return "text";
-
-    //return null;
+    return filters.textFilters;
   }
 }
 
-AddFilterDialog.propTypes = {
+AddTextDialog.propTypes = {
   item: PropTypes.string.isRequired,
   getItem: PropTypes.func.isRequired,
   project: PropTypes.string.isRequired,

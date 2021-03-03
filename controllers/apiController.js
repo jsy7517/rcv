@@ -13,26 +13,28 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 const Busboy = require("busboy");
+const Project = require("../models/projects");
 
 exports.default = (req, res) => {
   res.json({
     msg: req.session.userID,
   });
-  
 };
 
 exports.projectPOST = (req, res, next) => {
+  let projectID = nanoid(32);
+  fs.mkdir(
+    path.join(config.projectPath, projectID),
+    { recursive: true },
+    (err) => {
+      if (err) return next(err);
 
-	let projectID = nanoid(32);
-	fs.mkdir(path.join(config.projectPath, projectID), { recursive: true }, (err) => {
-		if (err) return next(err);
-
-		projectManager.save(projectID, projectManager.init()).then(
-			() => res.json({ project: projectID }),
-			err => next(err)
-		);
-	});
-
+      projectManager.save(projectID, projectManager.init()).then(
+        () => res.json({ project: projectID }),
+        (err) => next(err)
+      );
+    }
+  );
 };
 
 exports.projectGET = (req, res) => {
@@ -40,6 +42,7 @@ exports.projectGET = (req, res) => {
     async ([document]) => {
       // Resources
       const resources = {};
+
       const producerNodes = document.getElementsByTagName("producer");
       for (let producer of producerNodes) {
         let id = producer.id.replace(/^producer/, "");
@@ -69,7 +72,9 @@ exports.projectGET = (req, res) => {
       const timeline = {
         audio: [],
         video: [],
+        text: [],
       };
+      
       const tracks = document.querySelectorAll('mlt>playlist[id*="track"]');
       for (let track of tracks) {
         const trackEntry = {
@@ -106,17 +111,14 @@ exports.projectGET = (req, res) => {
             const tractor = document.getElementById(
               entry.getAttribute("producer")
             );
-            const tracks = tractor.getElementsByTagName("multitrack").item(0)
-              .childNodes;
+            const tracks = tractor.getElementsByTagName("multitrack").item(0).childNodes;
             const trackFilters = tractor.getElementsByTagName("filter");
             let index = 0;
             for (let track of tracks) {
               const playlist = document.getElementById(
                 track.getAttribute("producer")
               );
-              const playlistEntry = playlist
-                .getElementsByTagName("entry")
-                .item(0);
+              const playlistEntry = playlist.getElementsByTagName("entry").item(0);
               const duration = mltxmlManager.getDuration(
                 playlistEntry,
                 document
@@ -137,8 +139,15 @@ exports.projectGET = (req, res) => {
                       service: serviceAlias,
                     });
                   } else {
+                    var params = [];
+                    for (let attr of trackFilter.getElementsByTagName("property")) {
+                        var param = {name : attr.getAttribute("name"),
+                                    value : attr.innerHTML}
+                        params.push(param)
+                    }
                     filters.push({
                       service: trackFilter.getAttribute("mlt_service"),
+                      params: params
                     });
                   }
                 }
@@ -198,13 +207,20 @@ exports.projectGET = (req, res) => {
         );
       });
 
-      res.json({
-        project: req.params.projectID,
-        resources: resources,
-        timeline: timeline,
-        processing: processing,
-        name : req.session.name
-      });
+      Project.findOne({projectID : req.params.projectID}, (err, project)=> {
+        if(project){
+            res.json({
+              project: req.params.projectID,
+              projectName : project.name,
+              resources: resources,
+              timeline: timeline,
+              processing: processing,
+              name: req.session.name,
+            });
+        } 
+      })
+
+    
     },
     (err) => fileErr(err, res)
   );
@@ -1276,7 +1292,7 @@ exports.projectTrackPOST = (req, res, next) => {
       projectManager.save(req.params.projectID, root.outerHTML, release).then(
         () =>
           res.json({
-            msg: "Stopa přidána",
+            msg: "추가된 트랙",
             track: newTractor.id,
           }),
         (err) => next(err)

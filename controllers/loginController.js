@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import projectManager from "../models/projectManager";
 const fs = require("fs");
 const path = require("path");
+var ffmpeg = require("fluent-ffmpeg");
 
 const User = require("../models/users");
 const Project = require("../models/projects");
@@ -66,12 +67,93 @@ exports.projectPOST = (req, res, next) => {
 exports.projectsGET = (req, res) => {
   User.findOne({ userID: req.session.userID }, (err, user) => {
     if (err) console.log("no user");
-    Project.find({ projectID: { $in: user.projectIDs } }, (err, project) => {
-      if (!project) {
-        res.json({});
-      } else {
-        res.json(project);
-      }
-    });
+    if (!user) {
+      res.json({});
+    } else {
+      Project.find({ projectID: { $in: user.projectIDs } }, (err, project) => {
+        if (!project) {
+          res.json({});
+        } else {
+          res.json(project);
+        }
+      });
+    }
   });
+};
+
+var zero = function (n, digits) {
+  var z = "";
+  n = n.toString();
+  var i = 0;
+  if (n.length < digits) {
+    for (i = 0; i < digits - n.length; i++) z += "0";
+  }
+
+  return z + n;
+};
+
+exports.thumbnailPOST = (req, res) => {
+  let thumbsFilePath = "";
+  let fileDuration = "";
+
+  let date = new Date(req.body.time);
+  let mm = zero(date.getMinutes(), 2);
+  let ss = zero(date.getSeconds(), 2);
+  let ms = zero(date.getMilliseconds(), 3);
+  let timestamp = mm + ":" + ss + "." + ms;
+  let filter = req.body.filter;
+  let subtitle = null;
+  let fontcolor = null;
+  let size = null;
+  let level = null;
+
+  if(filter.service === 'text'){
+    subtitle = filter.properties[0].value;
+    fontcolor = filter.properties[2].value;
+    size = filter.properties[3].value;
+  } else if(filter.service === 'brightness'){
+    var num =  filter.properties[1].value.split(',');
+    if(num.length === 2)
+    level = '0' + '.' + num[1]
+    else 
+    level = num-1
+  }
+
+  var video = path.join(
+    __dirname,
+    "..",
+    "WORKER",
+    req.body.projectID,
+    req.body.resource + ".mp4"
+  );
+  var filename = 'thumbnail-' + req.body.resource + ".png";
+  var outputPath = path.join('public/images/', filename)
+
+  var options = [
+    '-s 320x240',
+    '-frames', '1',
+  ];
+
+
+  if(subtitle) 
+  options.push(`-filter:v drawtext=text=${subtitle}':x=w*0.3:y=h*0.8:fontsize=${size}:fontcolor=${fontcolor}`)
+  if(level && filter.service === 'brightness')
+  options.push(`-vf eq=brightness=${level}`)
+
+  ffmpeg(video)
+    .seekInput(timestamp)
+    .output(outputPath)
+    .outputOptions(options)
+    .on('end', function () {
+      return res.json({
+        success: true,
+        thumbsFilePath: filename,
+        fileDuration: fileDuration,
+      });
+    })
+    .on("error", function (err) {
+      console.error(err);
+      return res.json({ success: false, err });
+    })
+    .run()
 };

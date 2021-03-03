@@ -1,8 +1,3 @@
-/**
- * @file React binding to HTML file
- * @author Vladan Kudlac <vladankudlac@gmail.com>
- */
-
 import React from 'react';
 import ReactDOM from 'react-dom';
 import NewProjectDialog from './newProject/NewProjectDialog';

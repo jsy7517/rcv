@@ -168,4 +168,39 @@ export default {
       ],
     },
   ],
+
+  textFilters: 
+    {
+      id: "text",
+      title: "자막",
+      in: [
+        {
+          id: "text",
+          size: "size",
+          color: "color",
+          title: "지속시간",
+          type: "text",
+          value: "",
+        },
+      ],
+      out: [
+        {
+          id: "argument",
+          value: (input) => input.text,
+        },
+        {
+          id: "geometry",
+          value: () => "30%/80%:100%x100%:100",
+        },
+        {
+          id: "fgcolour",
+          value: (input) => input.color,
+        },
+        {
+          id: "size",
+          value: (input) => input.size,
+        },
+        
+      ],
+    },
 };
